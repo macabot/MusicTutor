@@ -161,13 +161,18 @@ def output_main(input_id = None, output_id = None, instrument = 0,
     else:
         out_port = output_id
 
-    print ("using input_id :%s:" % in_port)
-    print ("using output_id :%s:" % out_port)
+    print "using input_id :%s:" % in_port
+    print "using output_id :%s:" % out_port
 
-    midi_in = pygame.midi.Input(in_port)
-    midi_out = pygame.midi.Output(out_port, 0)
+    midi_in = midi_out = None
+    if in_port >= 0:
+        midi_in = pygame.midi.Input(in_port)
+    if out_port >= 0:
+        midi_out = pygame.midi.Output(out_port)
     try:
-        midi_out.set_instrument(instrument)
+        if midi_out:
+            midi_out.set_instrument(instrument)
+
         keyboard = Keyboard(start_note, n_notes)
 
         screen = pygame.display.set_mode(keyboard.rect.size)
@@ -184,7 +189,6 @@ def output_main(input_id = None, output_id = None, instrument = 0,
         keyboard.map_regions(regions)
 
         pygame.event.set_blocked(MOUSEMOTION)
-        repeat = 1
         mouse_note = 0
         on_notes = set()
         loop = True
@@ -192,6 +196,8 @@ def output_main(input_id = None, output_id = None, instrument = 0,
             update_rects = None
             events = pygame.fastevent.get()
             for e in events:
+                pressed_note = released_note = None
+                velocity = 0
                 # quit program
                 if e.type == pygame.QUIT:
                     loop = False
@@ -201,14 +207,14 @@ def output_main(input_id = None, output_id = None, instrument = 0,
                     mouse_note, velocity, __, __  = regions.get_at(e.pos)
                     if mouse_note and mouse_note not in on_notes:
                         keyboard.key_down(mouse_note)
-                        midi_out.note_on(mouse_note, velocity)
+                        pressed_note = mouse_note
                         on_notes.add(mouse_note)
                     else:
                         mouse_note = 0
                 elif e.type == pygame.MOUSEBUTTONUP:
                     if mouse_note:
-                        midi_out.note_off(mouse_note)
                         keyboard.key_up(mouse_note)
+                        released_note = mouse_note
                         on_notes.remove(mouse_note)
                         mouse_note = 0
                 # keyboard input
@@ -223,7 +229,7 @@ def output_main(input_id = None, output_id = None, instrument = 0,
                     else:
                         if note not in on_notes:
                             keyboard.key_down(note)
-                            midi_out.note_on(note, velocity)
+                            pressed_note = note
                             on_notes.add(note)
                 elif e.type == pygame.KEYUP:
                     try:
@@ -233,28 +239,36 @@ def output_main(input_id = None, output_id = None, instrument = 0,
                     else:
                         if note in on_notes and note != mouse_note:
                             keyboard.key_up(note)
-                            midi_out.note_off(note, 0)
+                            released_note = note
                             on_notes.remove(note)
                 # midi input
                 elif e.type == pygame.midi.MIDIIN:
                     note, velocity = e.data1, e.data2
                     if e.status == 144: # pressed note
-                        if note not in on_notes:
+                        if note not in on_notes and \
+                                start_note <= note < start_note + n_notes:
                             keyboard.key_down(note)
-                            midi_out.note_on(note, velocity)
+                            pressed_note = note
                             on_notes.add(note)
                     elif e.status == 128: # released note
                         if note in on_notes and note != mouse_note:
                             keyboard.key_up(note)
-                            midi_out.note_off(note, 0)
+                            released_note = note
                             on_notes.remove(note)
                     else:
                         raise ValueError("Unknown midi status: %s" % 
                             (event.status,))
+                
+                # turn midi sound on/off
+                if midi_out:
+                    if pressed_note:
+                        midi_out.note_on(pressed_note, velocity)
+                    elif released_note:
+                        midi_out.note_off(released_note)
 
-            if midi_in.poll():
+            # convert midi events into pygame events.
+            if midi_in and midi_in.poll():
                 midi_events = midi_in.read(10)
-                # convert midi events into pygame events.
                 midi_evs = pygame.midi.midis2events(midi_events, 
                     midi_in.device_id)
                 for m_e in midi_evs:
