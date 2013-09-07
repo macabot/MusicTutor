@@ -91,7 +91,7 @@ def input_main(device_id = None):
 
 
 def output_main(input_id = None, output_id = None, instrument = 0,
-                start_note = 53, n_notes = 24):
+                start_note = 60, n_notes = 25):
     """Execute a musical keyboard example for the Grand Piano instrument
 
     This is a piano keyboard example, with a two octave keyboard, starting at
