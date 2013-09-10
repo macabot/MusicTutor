@@ -13,6 +13,7 @@ import gettext
 # begin wxGlade: extracode
 # end wxGlade
 
+import midi
 
 class Root(wx.Frame):
     def __init__(self, *args, **kwds):
@@ -57,12 +58,14 @@ class Root(wx.Frame):
 
     def __set_properties(self):
         # begin wxGlade: Root.__set_properties
-        self.SetTitle(_("frame_1"))
+        self.SetTitle(_("Music Tutor"))
         self.SetSize((400, 300))
         self.combo_box_1.SetSelection(-1)
         self.text_ctrl_2.SetFocus()
         self.combo_box_2.SetSelection(-1)
         # end wxGlade
+        
+        self.update_devices()
 
     def __do_layout(self):
         # begin wxGlade: Root.__do_layout
@@ -132,7 +135,7 @@ class Root(wx.Frame):
         event.Skip()
 
     def refresh_devices(self, event):  # wxGlade: Root.<event_handler>
-        print "Event handler 'refresh_devices' not implemented!"
+        self.update_devices()
         event.Skip()
 
     def disconnect_devices(self, event):  # wxGlade: Root.<event_handler>
@@ -142,6 +145,13 @@ class Root(wx.Frame):
     def start_instrument(self, event):  # wxGlade: Root.<event_handler>
         print "Event handler 'start_instrument' not implemented!"
         event.Skip()
+        
+    def update_devices(self):
+        input_devices, output_devices = midi.get_devices(True)
+        self.list_box_input.Clear()
+        self.list_box_input.AppendItems(input_devices)
+        self.list_box_output.Clear()
+        self.list_box_output.AppendItems(output_devices)
 
 # end of class Root
 if __name__ == "__main__":

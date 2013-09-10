@@ -21,6 +21,28 @@ except NameError:
     from sets import Set as set
 
 
+def get_devices(as_string = False):
+    pygame.midi.init()
+    devs = _get_devices(as_string)
+    pygame.midi.quit()
+    return devs
+    
+def _get_devices(as_string = False):
+    input, output = [], []
+    for i in xrange(pygame.midi.get_count()):
+        device = pygame.midi.get_device_info(i)
+        if as_string:
+            item = "%d %s" % (i, device[1])
+        else:
+            item = device
+
+        if device[2]:
+            input.append(item)
+        else:
+            output.append(item)
+            
+    return input, output
+
 def print_device_info():
     pygame.midi.init()
     _print_device_info()
