@@ -15,6 +15,77 @@ import gettext
 
 import midi
 
+class KeyboardDisplay(wx.Window):
+    def __init__(self, parent, ID):
+        wx.Window.__init__(self, parent, ID)
+        self.parent = parent
+        self.hwnd = self.GetHandle()
+        
+        self.timer = wx.Timer(self)
+        self.Bind(wx.EVT_TIMER, self.update, self.timer)
+        self.Bind(wx.EVT_LEFT_DOWN, self.onClick)
+        self.Bind(wx.EVT_LEFT_UP, self.offClick)
+        self.Bind(wx.EVT_KEY_DOWN, self.onKey)
+        self.Bind(wx.EVT_KEY_UP, self.offKey)
+        
+        self.fps = 60.0
+        self.timespacing = 1000.0 / self.fps
+        self.timer.Start(self.timespacing, False)
+
+    def update(self, event):
+        # process pygame.midi events
+        pass
+        
+    def onClick(self, event):
+        pass
+        
+    def offClick(self, event):
+        pass
+        
+    def onKey(self, event):
+        pass
+        
+    def offKey(self, event):
+        pass
+        
+    def kill(self, event):
+        # Make sure Pygame can't be asked to redraw /before/ quitting by unbinding all methods which
+        # call the Redraw() method
+        # (Otherwise wx seems to call Draw between quitting Pygame and destroying the frame)
+        # This may or may not be necessary now that Pygame is just drawing to surfaces
+        self.Unbind(event = wx.EVT_TIMER, handler = self.update, 
+            source = self.timer)
+        self.Unbind(event = wx.EVT_LEFT_DOWN, handler = self.onClick)
+        self.Unbind(event = wx.EVT_LEFT_UP, handler = self.offClick)
+        self.Unbind(event = wx.EVT_KEY_DOWN, handler = self.onKey)
+        self.Unbind(event = wx.EVT_KEY_UP, handler = self.offKey)
+
+class Instrument(wx.Frame):
+    def __init__(self, *args, **kwds):
+        # begin wxGlade: Instrument.__init__
+        kwds["style"] = wx.DEFAULT_FRAME_STYLE
+        wx.Frame.__init__(self, *args, **kwds)
+        self.window_1 = KeyboardDisplay(self, wx.ID_ANY)
+
+        self.__set_properties()
+        self.__do_layout()
+        # end wxGlade
+
+    def __set_properties(self):
+        # begin wxGlade: Instrument.__set_properties
+        self.SetTitle(_("Instrument"))
+        # end wxGlade
+
+    def __do_layout(self):
+        # begin wxGlade: Instrument.__do_layout
+        sizer_17 = wx.BoxSizer(wx.VERTICAL)
+        sizer_17.Add(self.window_1, 1, wx.EXPAND, 0)
+        self.SetSizer(sizer_17)
+        sizer_17.Fit(self)
+        self.Layout()
+        # end wxGlade
+
+# end of class Instrument
 class Root(wx.Frame):
     def __init__(self, *args, **kwds):
         # begin wxGlade: Root.__init__
