@@ -27,8 +27,8 @@ class Root(wx.Frame):
         self.list_box_output = wx.ListBox(self.notebook_devices, wx.ID_ANY, choices=[], style=wx.LB_SINGLE)
         self.sizer_6_staticbox = wx.StaticBox(self.notebook_devices, wx.ID_ANY, _("Output"))
         self.button_connect = wx.Button(self.notebook_devices, wx.ID_ANY, _("Connect"))
-        self.button_2 = wx.Button(self.notebook_devices, wx.ID_ANY, _("Refresh"))
-        self.button_1 = wx.Button(self.notebook_devices, wx.ID_ANY, _("Disconnect"))
+        self.button_refresh = wx.Button(self.notebook_devices, wx.ID_ANY, _("Refresh"))
+        self.button_disconnect = wx.Button(self.notebook_devices, wx.ID_ANY, _("Disconnect"))
         self.notebook_rules = wx.Panel(self.notebook, wx.ID_ANY)
         self.label_2 = wx.StaticText(self.notebook_rules, wx.ID_ANY, _("Type:"))
         self.combo_box_1 = wx.ComboBox(self.notebook_rules, wx.ID_ANY, choices=[_("Scale"), _("Chord"), _("Chord Progression")], style=wx.CB_DROPDOWN)
@@ -50,16 +50,23 @@ class Root(wx.Frame):
         self.__set_properties()
         self.__do_layout()
 
+        self.Bind(wx.EVT_LISTBOX, self.select_input_id, self.list_box_input)
+        self.Bind(wx.EVT_LISTBOX, self.select_output_id, self.list_box_output)
         self.Bind(wx.EVT_BUTTON, self.connect_devices, self.button_connect)
-        self.Bind(wx.EVT_BUTTON, self.refresh_devices, self.button_2)
-        self.Bind(wx.EVT_BUTTON, self.disconnect_devices, self.button_1)
+        self.Bind(wx.EVT_BUTTON, self.refresh_devices, self.button_refresh)
+        self.Bind(wx.EVT_BUTTON, self.disconnect_devices, self.button_disconnect)
         self.Bind(wx.EVT_BUTTON, self.start_instrument, self.button_play)
         # end wxGlade
+        
+        self.input_id = None
+        self.output_id = None
 
     def __set_properties(self):
         # begin wxGlade: Root.__set_properties
         self.SetTitle(_("Music Tutor"))
         self.SetSize((400, 300))
+        self.button_connect.Enable(False)
+        self.button_disconnect.Enable(False)
         self.combo_box_1.SetSelection(-1)
         self.text_ctrl_2.SetFocus()
         self.combo_box_2.SetSelection(-1)
@@ -92,8 +99,8 @@ class Root(wx.Frame):
         sizer_6.Add(self.list_box_output, 1, wx.EXPAND, 0)
         sizer_4.Add(sizer_6, 2, wx.EXPAND, 0)
         sizer_7.Add(self.button_connect, 1, wx.EXPAND, 0)
-        sizer_7.Add(self.button_2, 1, wx.EXPAND, 0)
-        sizer_7.Add(self.button_1, 1, wx.EXPAND, 0)
+        sizer_7.Add(self.button_refresh, 1, wx.EXPAND, 0)
+        sizer_7.Add(self.button_disconnect, 1, wx.EXPAND, 0)
         sizer_4.Add(sizer_7, 1, wx.EXPAND, 0)
         self.notebook_devices.SetSizer(sizer_4)
         sizer_14.Add(self.label_2, 0, 0, 0)
@@ -132,6 +139,8 @@ class Root(wx.Frame):
 
     def connect_devices(self, event):  # wxGlade: Root.<event_handler>
         print "Event handler 'connect_devices' not implemented!"
+        self.button_disconnect.Enable(True)
+        self.button_connect.Enable(False)
         event.Skip()
 
     def refresh_devices(self, event):  # wxGlade: Root.<event_handler>
@@ -140,6 +149,8 @@ class Root(wx.Frame):
 
     def disconnect_devices(self, event):  # wxGlade: Root.<event_handler>
         print "Event handler 'disconnect_devices' not implemented!"
+        self.button_connect.Enable(True)
+        self.button_disconnect.Enable(False)
         event.Skip()
 
     def start_instrument(self, event):  # wxGlade: Root.<event_handler>
@@ -153,7 +164,23 @@ class Root(wx.Frame):
         self.list_box_output.Clear()
         self.list_box_output.AppendItems(output_devices)
 
+    def select_input_id(self, event):  # wxGlade: Root.<event_handler>
+        device = self.list_box_input.GetStringSelection()
+        self.input_id = int(device.split()[0])
+        print 'input id: %s' % self.input_id
+        if self.output_id != None:
+            self.button_connect.Enable(True)
+        event.Skip()
+    
+    def select_output_id(self, event):  # wxGlade: Root.<event_handler>
+        device = self.list_box_output.GetStringSelection()
+        self.output_id = int(device.split()[0])
+        print 'output id: %s' % self.output_id
+        if self.input_id != None:
+            self.button_connect.Enable(True)
+        event.Skip()
 # end of class Root
+
 if __name__ == "__main__":
     gettext.install("app") # replace with the appropriate catalog name
 

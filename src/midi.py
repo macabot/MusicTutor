@@ -61,9 +61,6 @@ def _print_device_info():
 
         print ("%2i: interface :%s:, name :%s:, opened :%s:  %s" %
                (i, interf, name, opened, in_out))
-        
-
-
 
 def input_main(device_id = None):
     pygame.init()
@@ -109,8 +106,6 @@ def input_main(device_id = None):
 
     del i
     pygame.midi.quit()
-
-
 
 def output_main(input_id = None, output_id = None, instrument = 0,
                 start_note = 60, n_notes = 25):
