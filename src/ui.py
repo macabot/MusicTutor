@@ -14,39 +14,139 @@ import gettext
 # end wxGlade
 
 import midi
+from pygame import Color
+import pygame.midi
+
 
 class KeyboardDisplay(wx.Window):
-    def __init__(self, parent, ID):
+    def __init__(self, parent, ID, input_id, output_id,
+            instrument_id = 0, start_note = 60, n_notes = 24):
         wx.Window.__init__(self, parent, ID)
         self.parent = parent
         self.hwnd = self.GetHandle()
         
+        self.start_note = start_note
+        self.n_notes = n_notes
+        keys = [wx.WXK_TAB]
+        keys += [ord(i) for i in ['1', 'Q', '2', 'W', 'E', '4', 'R', '5', 'T',
+            '6', 'Y', 'U', '8', 'I', '9', 'O', 'P', '-', '[', '+', ']']]
+        keys += [wx.WXK_BACK, ord('\\')]
+        self.key_mapping = midi.make_key_mapping(keys, start_note)
+        
+        pygame.midi.init()
+        if input_id:
+            self.input_device = pygame.midi.Input(input_id)
+        else:
+            self.input_device = None
+
+        self.output_device = pygame.midi.Output(output_id)
+        self.output_device.set_instrument(instrument_id)
+        self.keyboard = midi.Keyboard(start_note, n_notes)
+        
         self.timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.update, self.timer)
-        self.Bind(wx.EVT_LEFT_DOWN, self.onClick)
-        self.Bind(wx.EVT_LEFT_UP, self.offClick)
-        self.Bind(wx.EVT_KEY_DOWN, self.onKey)
-        self.Bind(wx.EVT_KEY_UP, self.offKey)
+        self.Bind(wx.EVT_LEFT_DOWN, self.on_click)
+        self.Bind(wx.EVT_LEFT_UP, self.off_click)
+        self.Bind(wx.EVT_KEY_DOWN, self.on_key)
+        self.Bind(wx.EVT_KEY_UP, self.off_key)
         
         self.fps = 60.0
         self.timespacing = 1000.0 / self.fps
         self.timer.Start(self.timespacing, False)
 
+        self.screen = pygame.display.set_mode(self.keyboard.rect.size)
+        bg_color = Color('slategray')
+        self.screen.fill(bg_color)
+        pygame.display.flip()
+
+        self.background = pygame.Surface(self.screen.get_size())
+        self.background.fill(bg_color)
+        self.redraw()
+
+        self.regions = pygame.Surface(self.screen.get_size())  # initial color (0,0,0)
+        self.keyboard.map_regions(self.regions)
+
+        self.mouse_note = None
+        self.on_notes = set()
+
     def update(self, event):
-        # process pygame.midi events
-        pass
+        update_keyboard = False
+        if self.input_device and self.input_device.poll():
+            midi_events = self.input_device.read(10)
+            for m_e in midi_events:
+                [[status, note, velocity, _data3], _timestamp] = m_e
+                if event.status == 144: # pressed note
+                    if note not in self.on_notes:
+                        self.output_device.note_on(note, velocity)
+                        self.on_notes.add(note)
+                        if self.start_note <= note < self.start_note + self.n_notes:
+                            keyboard.key_down(note)
+                            update_keyboard = True
+                elif event.status == 128: # released note
+                    if note not in self.on_notes and note != self.mouse_note:
+                        self.output_device.not_off(note)
+                        self.on_notes.remove(note)
+                        if self.start_note <= note < self.start_note + self.n_notes:
+                            keyboard.key_up(note)
+                            update_keyboard = True
+                
+        if update_keyboard:
+            self.redraw()
+            
+        event.Skip()
         
-    def onClick(self, event):
-        pass
+    def on_click(self, event):
+        self.mouse_note, velocity, _, _  = self.regions.get_at(event.GetPositionTuple())
+        if self.mouse_note and self.mouse_note not in self.on_notes:
+            self.keyboard.key_down(self.mouse_note)
+            self.output_device.note_on(self.mouse_note, velocity)
+            self.on_notes.add(self.mouse_note)
+            self.redraw()
+            
+        event.Skip()
         
-    def offClick(self, event):
-        pass
+    def off_click(self, event):
+        if self.mouse_note:
+            self.keyboard.key_up(self.mouse_note)
+            self.output_device.note_off(self.mouse_note)
+            self.on_notes.remove(self.mouse_note)
+            self.mouse_note = None
+            self.redraw()
+            
+        event.Skip()
         
-    def onKey(self, event):
-        pass
+    def on_key(self, event):
+        try:
+            note, velocity = self.key_mapping[event.GetKeyCode()]
+        except KeyError:
+            pass
+        else:
+            if note not in self.on_notes:
+                self.keyboard.key_down(note)
+                self.output_device.note_on(note, velocity)
+                self.on_notes.add(note)
+                self.redraw()
+                
+        event.Skip()
         
-    def offKey(self, event):
-        pass
+    def off_key(self, event):
+        try:
+            note, velocity = self.key_mapping[event.GetKeyCode()]
+        except KeyError:
+            pass
+        else:
+            if note in self.on_notes and note != self.mouse_note:
+                self.keyboard.key_up(note)
+                self.output_device.note_off(note)
+                self.on_notes.remove(note)
+                self.redraw()
+                
+        event.Skip()
+        
+    def redraw(self):
+        self.dirty_rects = []
+        self.keyboard.draw(self.screen, self.background, self.dirty_rects)
+        pygame.display.update(self.dirty_rects)
         
     def kill(self, event):
         # Make sure Pygame can't be asked to redraw /before/ quitting by unbinding all methods which
@@ -55,23 +155,28 @@ class KeyboardDisplay(wx.Window):
         # This may or may not be necessary now that Pygame is just drawing to surfaces
         self.Unbind(event = wx.EVT_TIMER, handler = self.update, 
             source = self.timer)
-        self.Unbind(event = wx.EVT_LEFT_DOWN, handler = self.onClick)
-        self.Unbind(event = wx.EVT_LEFT_UP, handler = self.offClick)
-        self.Unbind(event = wx.EVT_KEY_DOWN, handler = self.onKey)
-        self.Unbind(event = wx.EVT_KEY_UP, handler = self.offKey)
+        self.Unbind(event = wx.EVT_LEFT_DOWN, handler = self.on_click)
+        self.Unbind(event = wx.EVT_LEFT_UP, handler = self.off_click)
+        self.Unbind(event = wx.EVT_KEY_DOWN, handler = self.on_key)
+        self.Unbind(event = wx.EVT_KEY_UP, handler = self.off_key)
+        # ensure midi is properly shut down
+        del self.input_device
+        del self.output_device
+        pygame.midi.quit()
+        event.Skip()
 
 class Instrument(wx.Frame):
-    def __init__(self, *args, **kwds):
+    def __init__(self, parent, input_id, output_id, *args, **kwds):
         # begin wxGlade: Instrument.__init__
         kwds["style"] = wx.DEFAULT_FRAME_STYLE
-        wx.Frame.__init__(self, *args, **kwds)
-        self.window_1 = KeyboardDisplay(self, wx.ID_ANY)
+        wx.Frame.__init__(self, parent, -1, *args, **kwds)
+        self.display = KeyboardDisplay(self, wx.ID_ANY, input_id, output_id)
 
-        self.__set_properties()
-        self.__do_layout()
+        #self.__set_properties()
+        #self.__do_layout()
         # end wxGlade
 
-    def __set_properties(self):
+    '''def __set_properties(self):
         # begin wxGlade: Instrument.__set_properties
         self.SetTitle(_("Instrument"))
         # end wxGlade
@@ -79,12 +184,12 @@ class Instrument(wx.Frame):
     def __do_layout(self):
         # begin wxGlade: Instrument.__do_layout
         sizer_17 = wx.BoxSizer(wx.VERTICAL)
-        sizer_17.Add(self.window_1, 1, wx.EXPAND, 0)
+        sizer_17.Add(self.display, 1, wx.EXPAND, 0)
         self.SetSizer(sizer_17)
         sizer_17.Fit(self)
         self.Layout()
         # end wxGlade
-
+    '''
 # end of class Instrument
 class Root(wx.Frame):
     def __init__(self, *args, **kwds):
@@ -209,7 +314,9 @@ class Root(wx.Frame):
         # end wxGlade
 
     def connect_devices(self, event):  # wxGlade: Root.<event_handler>
-        print "Event handler 'connect_devices' not implemented!"
+        self.instrument = Instrument(self, self.input_id, self.output_id)
+        self.instrument.Show()
+        self.Layout()
         self.button_disconnect.Enable(True)
         self.button_connect.Enable(False)
         event.Skip()
@@ -238,17 +345,12 @@ class Root(wx.Frame):
     def select_input_id(self, event):  # wxGlade: Root.<event_handler>
         device = self.list_box_input.GetStringSelection()
         self.input_id = int(device.split()[0])
-        print 'input id: %s' % self.input_id
-        if self.output_id != None:
-            self.button_connect.Enable(True)
         event.Skip()
     
     def select_output_id(self, event):  # wxGlade: Root.<event_handler>
         device = self.list_box_output.GetStringSelection()
         self.output_id = int(device.split()[0])
-        print 'output id: %s' % self.output_id
-        if self.input_id != None:
-            self.button_connect.Enable(True)
+        self.button_connect.Enable(True)
         event.Skip()
 # end of class Root
 
