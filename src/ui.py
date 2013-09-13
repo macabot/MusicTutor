@@ -49,26 +49,26 @@ class KeyboardDisplay(wx.Window):
         self.Bind(wx.EVT_LEFT_UP, self.off_click)
         self.Bind(wx.EVT_KEY_DOWN, self.on_key)
         self.Bind(wx.EVT_KEY_UP, self.off_key)
+        self.Bind(wx.EVT_PAINT, self.on_paint)
         
         self.fps = 60.0
         self.timespacing = 1000.0 / self.fps
         self.timer.Start(self.timespacing, False)
 
-        self.screen = pygame.display.set_mode(self.keyboard.rect.size)
+        self.size = self.keyboard.rect.size
+        self.screen = pygame.Surface(self.size)
+        self.background = pygame.Surface(self.screen.get_size(), 0, 32)
         bg_color = Color('slategray')
-        self.screen.fill(bg_color)
-        pygame.display.flip()
-
-        self.background = pygame.Surface(self.screen.get_size())
         self.background.fill(bg_color)
-        self.redraw()
 
-        self.regions = pygame.Surface(self.screen.get_size())  # initial color (0,0,0)
+        self.regions = pygame.Surface(self.screen.get_size())
         self.keyboard.map_regions(self.regions)
 
         self.mouse_note = None
         self.on_notes = set()
-
+        
+        self.redraw()
+    
     def update(self, event):
         update_keyboard = False
         if self.input_device and self.input_device.poll():
@@ -96,13 +96,16 @@ class KeyboardDisplay(wx.Window):
         event.Skip()
         
     def on_click(self, event):
-        self.mouse_note, velocity, _, _  = self.regions.get_at(event.GetPositionTuple())
-        if self.mouse_note and self.mouse_note not in self.on_notes:
-            self.keyboard.key_down(self.mouse_note)
-            self.output_device.note_on(self.mouse_note, velocity)
-            self.on_notes.add(self.mouse_note)
-            self.redraw()
-            
+        try:
+            self.mouse_note, velocity, _, _  = self.regions.get_at(event.GetPositionTuple())
+            if self.mouse_note and self.mouse_note not in self.on_notes:
+                self.keyboard.key_down(self.mouse_note)
+                self.output_device.note_on(self.mouse_note, velocity)
+                self.on_notes.add(self.mouse_note)
+                self.redraw()
+        except IndexError:
+            pass
+
         event.Skip()
         
     def off_click(self, event):
@@ -144,9 +147,17 @@ class KeyboardDisplay(wx.Window):
         event.Skip()
         
     def redraw(self):
-        self.dirty_rects = []
-        self.keyboard.draw(self.screen, self.background, self.dirty_rects)
-        pygame.display.update(self.dirty_rects)
+        self.keyboard.draw(self.screen, self.background, [])
+        s = pygame.image.tostring(self.screen, 'RGB')
+        img = wx.ImageFromData(self.size[0], self.size[1], s)
+        bmp = wx.BitmapFromImage(img)
+        dc = wx.ClientDC(self)
+        dc.DrawBitmap(bmp, 0, 0, False)
+        del dc
+
+    def on_paint(self, event):
+        self.redraw()
+        event.Skip()
         
     def kill(self, event):
         # Make sure Pygame can't be asked to redraw /before/ quitting by unbinding all methods which
@@ -159,6 +170,7 @@ class KeyboardDisplay(wx.Window):
         self.Unbind(event = wx.EVT_LEFT_UP, handler = self.off_click)
         self.Unbind(event = wx.EVT_KEY_DOWN, handler = self.on_key)
         self.Unbind(event = wx.EVT_KEY_UP, handler = self.off_key)
+        self.Unbind(event = wx.EVT_PAINT, handler = self.on_paint)
         # ensure midi is properly shut down
         del self.input_device
         del self.output_device
@@ -172,14 +184,15 @@ class Instrument(wx.Frame):
         wx.Frame.__init__(self, parent, -1, *args, **kwds)
         self.display = KeyboardDisplay(self, wx.ID_ANY, input_id, output_id)
 
-        #self.__set_properties()
-        #self.__do_layout()
+        self.__set_properties()
+        self.__do_layout()
         # end wxGlade
 
-    '''def __set_properties(self):
+    def __set_properties(self):
         # begin wxGlade: Instrument.__set_properties
         self.SetTitle(_("Instrument"))
         # end wxGlade
+        self.SetSize(self.display.size)
 
     def __do_layout(self):
         # begin wxGlade: Instrument.__do_layout
@@ -189,7 +202,7 @@ class Instrument(wx.Frame):
         sizer_17.Fit(self)
         self.Layout()
         # end wxGlade
-    '''
+    
 # end of class Instrument
 class Root(wx.Frame):
     def __init__(self, *args, **kwds):
