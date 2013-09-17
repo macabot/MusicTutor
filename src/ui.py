@@ -17,6 +17,7 @@ import midi
 from pygame import Color
 import pygame.midi
 
+FAVICON_PATH = '../img/favicon.ico'
 
 class KeyboardDisplay(wx.Window):
     def __init__(self, parent, ID, input_id, output_id,
@@ -195,6 +196,8 @@ class Instrument(wx.Frame):
         self.SetTitle(_("Instrument"))
         # end wxGlade
         self.SetSize(self.display.size)
+        favicon = wx.Icon(FAVICON_PATH, wx.BITMAP_TYPE_ICO, 32, 32)
+        self.SetIcon(favicon)
 
     def __do_layout(self):
         # begin wxGlade: Instrument.__do_layout
@@ -266,7 +269,8 @@ class Root(wx.Frame):
         self.text_ctrl_2.SetFocus()
         self.combo_box_2.SetSelection(-1)
         # end wxGlade
-        
+        favicon = wx.Icon(FAVICON_PATH, wx.BITMAP_TYPE_ICO, 32, 32)
+        self.SetIcon(favicon)
         self.update_devices()
 
     def __do_layout(self):
