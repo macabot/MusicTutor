@@ -159,7 +159,7 @@ class KeyboardDisplay(wx.Window):
         self.redraw()
         event.Skip()
         
-    def kill(self, event):
+    def kill(self):
         # Make sure Pygame can't be asked to redraw /before/ quitting by unbinding all methods which
         # call the Redraw() method
         # (Otherwise wx seems to call Draw between quitting Pygame and destroying the frame)
@@ -175,7 +175,7 @@ class KeyboardDisplay(wx.Window):
         del self.input_device
         del self.output_device
         pygame.midi.quit()
-        event.Skip()
+        self.Destroy()
 
 class Instrument(wx.Frame):
     def __init__(self, parent, input_id, output_id, *args, **kwds):
@@ -187,6 +187,8 @@ class Instrument(wx.Frame):
         self.__set_properties()
         self.__do_layout()
         # end wxGlade
+        
+        self.Bind(wx.EVT_CLOSE, self.kill)
 
     def __set_properties(self):
         # begin wxGlade: Instrument.__set_properties
@@ -202,6 +204,10 @@ class Instrument(wx.Frame):
         sizer_17.Fit(self)
         self.Layout()
         # end wxGlade
+        
+    def kill(self, event):
+        self.display.kill()
+        self.Destroy()
     
 # end of class Instrument
 class Root(wx.Frame):
@@ -328,21 +334,22 @@ class Root(wx.Frame):
 
     def connect_devices(self, event):  # wxGlade: Root.<event_handler>
         self.instrument = Instrument(self, self.input_id, self.output_id)
+        #self.Bind(wx.EVT_CLOSE, self.disconnect_devices, self.instrument.kill)
+        self.instrument.Bind(wx.EVT_CLOSE, self.disconnect_devices)
         self.instrument.Show()
         self.Layout()
         self.button_disconnect.Enable(True)
         self.button_connect.Enable(False)
         event.Skip()
-
+        
     def refresh_devices(self, event):  # wxGlade: Root.<event_handler>
         self.update_devices()
         event.Skip()
 
     def disconnect_devices(self, event):  # wxGlade: Root.<event_handler>
-        print "Event handler 'disconnect_devices' not implemented!"
+        self.instrument.kill(event)
         self.button_connect.Enable(True)
         self.button_disconnect.Enable(False)
-        event.Skip()
 
     def start_instrument(self, event):  # wxGlade: Root.<event_handler>
         print "Event handler 'start_instrument' not implemented!"
